@@ -1,0 +1,77 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+.npm
+
+# Build outputs
+dist/
+build/
+
+# Environment and secrets
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Configuration files with potential secrets
+config/
+.ridge-code/
+*.config.json
+
+# API keys and sensitive data
+**/apiKey*
+**/secret*
+**/token*
+**/*key*
+.auth/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+.nyc_output/
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Debug and temporary files
+debug-images/
+temp/
+tmp/
+*.tmp
+
+# Documentation that shouldn't be in repo
+*.md
+!README.md
+!RIDGECODE_USERGUIDE.md
