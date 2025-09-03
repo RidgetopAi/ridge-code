@@ -1,33 +1,26 @@
 #!/usr/bin/env node
 
-import { RidgeCLI } from './core/cli';
-import { CliConfig } from './types';
+import { RidgeCodeCLI } from './core/RidgeCodeCLI';
 import chalk from 'chalk';
 
-const defaultConfig: CliConfig = {
-  aidisEndpoint: 'http://localhost:3000',
-  logLevel: 'info',
-  timeout: 30000,
-};
-
+/**
+ * Main entry point for Ridge-Code CLI
+ * Assembles all components into a working interactive CLI
+ */
 async function main(): Promise<void> {
-  const cli = new RidgeCLI(defaultConfig);
-  
-  // Add basic commands for Phase 1 MVP
-  cli.addCommand('ping', 'Test AIDIS connection', () => {
-    console.log(chalk.green('✓ AIDIS connection test (placeholder)'));
-  });
-
-  cli.addCommand('help', 'Show help information', () => {
-    console.log(chalk.yellow('Help system (placeholder)'));
-  });
-
-  await cli.run(process.argv);
+  try {
+    const cli = new RidgeCodeCLI();
+    await cli.start();
+  } catch (error) {
+    console.error(chalk.red('✗ Failed to start Ridge-Code CLI:'), error);
+    process.exit(1);
+  }
 }
 
+// Run main if this is the entry point
 if (require.main === module) {
   main().catch(error => {
-    console.error(chalk.red('Fatal error:'), error);
+    console.error(chalk.red('✗ Fatal error:'), error);
     process.exit(1);
   });
 }
