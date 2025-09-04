@@ -10,13 +10,14 @@ module.exports = {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  extensionsToTreatAsEsm: ['.ts'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {}]
   },
-  transformIgnorePatterns: [
-    'node_modules/(?!(chalk|cli-highlight|cli-table3)/)'
-  ]
+  moduleNameMapper: {
+    '^chalk$': '<rootDir>/tests/__mocks__/chalk.js',
+    '^cli-highlight$': '<rootDir>/tests/__mocks__/cli-highlight.js',
+    '^cli-table3$': '<rootDir>/tests/__mocks__/cli-table3.js',
+    '^@modelcontextprotocol/sdk/client/index.js$': '<rootDir>/tests/__mocks__/mcp-client.js'
+  },
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts']
 };

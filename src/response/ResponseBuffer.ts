@@ -16,14 +16,14 @@ export class ResponseBuffer {
    */
   addResponse(content: string, metadata?: ResponseMetadata): void {
     const operationId = this.acquireLock();
-    
+
     try {
       const defaultMetadata: ResponseMetadata = {
         model: 'unknown',
         tokenCount: 0,
-        responseTime: 0
+        responseTime: 0,
       };
-      
+
       const response: BufferedResponse = {
         content,
         timestamp: new Date(),
@@ -47,22 +47,20 @@ export class ResponseBuffer {
    */
   getRecentResponses(count: number): BufferedResponse[] {
     const operationId = this.acquireLock();
-    
+
     try {
       // Handle zero or negative count
       if (count <= 0) {
         return [];
       }
-      
+
       const requestedCount = Math.min(count, this.responses.length);
-      
+
       // Return the most recent responses (slice from end)
-      return this.responses
-        .slice(-requestedCount)
-        .map(response => ({
-          ...response,
-          metadata: { ...response.metadata }, // Clone to prevent external mutations
-        }));
+      return this.responses.slice(-requestedCount).map(response => ({
+        ...response,
+        metadata: { ...response.metadata }, // Clone to prevent external mutations
+      }));
     } finally {
       this.releaseLock(operationId);
     }
@@ -73,14 +71,14 @@ export class ResponseBuffer {
    */
   findAidisCommands(pattern: string): AidisCommand[] {
     const operationId = this.acquireLock();
-    
+
     try {
       const commands: AidisCommand[] = [];
       const regex = new RegExp(pattern, 'gi');
 
       for (const response of this.responses) {
         const matches = response.content.match(regex);
-        
+
         if (matches) {
           for (const match of matches) {
             commands.push({
@@ -105,7 +103,7 @@ export class ResponseBuffer {
    */
   extractParsedAidisCommands(): ParsedAidisCommand[] {
     const operationId = this.acquireLock();
-    
+
     try {
       const allCommands: ParsedAidisCommand[] = [];
 
@@ -133,7 +131,7 @@ export class ResponseBuffer {
    */
   clear(): void {
     const operationId = this.acquireLock();
-    
+
     try {
       this.responses.length = 0;
     } finally {
@@ -152,10 +150,10 @@ export class ResponseBuffer {
     averageResponseTime: number;
   } {
     const operationId = this.acquireLock();
-    
+
     try {
       const totalResponses = this.responses.length;
-      
+
       if (totalResponses === 0) {
         return {
           totalResponses: 0,
@@ -166,14 +164,15 @@ export class ResponseBuffer {
 
       const oldestTimestamp = this.responses[0]?.timestamp;
       const newestTimestamp = this.responses[totalResponses - 1]?.timestamp;
-      
+
       const totalContentLength = this.responses.reduce((sum, response) => {
         return sum + response.content.length;
       }, 0);
 
-      const averageResponseTime = this.responses.reduce((sum, response) => {
-        return sum + response.metadata.responseTime;
-      }, 0) / totalResponses;
+      const averageResponseTime =
+        this.responses.reduce((sum, response) => {
+          return sum + response.metadata.responseTime;
+        }, 0) / totalResponses;
 
       return {
         totalResponses,
@@ -199,7 +198,7 @@ export class ResponseBuffer {
     const end = Math.min(content.length, matchIndex + match.length + contextRadius);
 
     let context = content.substring(start, end);
-    
+
     // Add ellipsis if we're not at the beginning/end
     if (start > 0) context = '...' + context;
     if (end < content.length) context = context + '...';
@@ -212,13 +211,13 @@ export class ResponseBuffer {
    */
   private acquireLock(): string {
     const operationId = `${Date.now()}-${Math.random()}`;
-    
+
     // Simple spin-wait for concurrent access (suitable for Node.js single-threaded nature)
     while (this.mutex.size > 0) {
       // In Node.js, this provides basic protection against race conditions
       // in case of asynchronous operations
     }
-    
+
     this.mutex.add(operationId);
     return operationId;
   }

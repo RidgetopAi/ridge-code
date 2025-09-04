@@ -13,7 +13,7 @@ const ContextStoreSchema = z.object({
     z.literal('discussion'),
     z.literal('planning'),
     z.literal('completion'),
-    z.literal('milestone')
+    z.literal('milestone'),
   ]),
   tags: z.array(z.string()).optional(),
   relevanceScore: z.number().min(0).max(10).optional(),
@@ -25,21 +25,20 @@ const ContextStoreSchema = z.object({
 const TaskCreateSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  type: z.union([
-    z.literal('feature'),
-    z.literal('bugfix'),
-    z.literal('refactor'),
-    z.literal('test'),
-    z.literal('review'),
-    z.literal('documentation'),
-    z.literal('general')
-  ]).default('general'),
-  priority: z.union([
-    z.literal('low'),
-    z.literal('medium'),
-    z.literal('high'),
-    z.literal('urgent')
-  ]).default('medium'),
+  type: z
+    .union([
+      z.literal('feature'),
+      z.literal('bugfix'),
+      z.literal('refactor'),
+      z.literal('test'),
+      z.literal('review'),
+      z.literal('documentation'),
+      z.literal('general'),
+    ])
+    .default('general'),
+  priority: z
+    .union([z.literal('low'), z.literal('medium'), z.literal('high'), z.literal('urgent')])
+    .default('medium'),
   assignedTo: z.string().optional(),
   dependencies: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
@@ -75,15 +74,15 @@ export class AidisResponseParser {
     while ((match = this.AIDIS_PATTERN.exec(response)) !== null) {
       try {
         const [fullMatch, command, jsonPayload] = match;
-        
+
         if (!command || !jsonPayload) {
           console.warn(`Invalid match structure: ${fullMatch}`);
           continue;
         }
-        
+
         // Parse JSON payload
         const payload = JSON.parse(jsonPayload);
-        
+
         // Validate the command and payload
         if (this.validateCommandPayload(command, payload)) {
           commands.push({
@@ -106,7 +105,7 @@ export class AidisResponseParser {
    */
   validateCommandPayload(command: string, payload: object): boolean {
     const schema = COMMAND_SCHEMAS[command];
-    
+
     if (!schema) {
       console.warn(`Unknown AIDIS command: ${command}`);
       return false;
@@ -161,14 +160,14 @@ export class AidisResponseParser {
 
     try {
       const [fullMatch, command, jsonPayload] = match;
-      
+
       if (!command || !jsonPayload) {
         console.warn(`Invalid match structure: ${fullMatch}`);
         return null;
       }
-      
+
       const payload = JSON.parse(jsonPayload);
-      
+
       if (this.validateCommandPayload(command, payload)) {
         return { command, payload };
       }

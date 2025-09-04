@@ -82,15 +82,12 @@ export class AidisMcpClient {
   private async attemptHttpConnection(): Promise<void> {
     // Test the HTTP connection directly without using the public ping method
     try {
-      const response: AxiosResponse = await this.httpClient.post(
-        '/mcp/tools/aidis_ping',
-        {
-          arguments: {
-            message: 'Ridge-Code HTTP Connection Test',
-            projectId: '51040d59-dc3a-4f1b-a17a-cf707cd35937'
-          }
-        }
-      );
+      const response: AxiosResponse = await this.httpClient.post('/mcp/tools/aidis_ping', {
+        arguments: {
+          message: 'Ridge-Code HTTP Connection Test',
+          projectId: '51040d59-dc3a-4f1b-a17a-cf707cd35937',
+        },
+      });
 
       if (!response.data?.success) {
         throw new Error('Ping request failed');
@@ -119,12 +116,9 @@ export class AidisMcpClient {
       };
 
       // Make HTTP request to AIDIS API
-      const response: AxiosResponse = await this.httpClient.post(
-        `/mcp/tools/${command}`,
-        {
-          arguments: enhancedPayload,
-        }
-      );
+      const response: AxiosResponse = await this.httpClient.post(`/mcp/tools/${command}`, {
+        arguments: enhancedPayload,
+      });
 
       const apiResult = response.data;
 
@@ -150,7 +144,7 @@ export class AidisMcpClient {
           timestamp: new Date().toISOString(),
         };
       }
-      
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -199,27 +193,63 @@ export class AidisMcpClient {
 
     // Return known AIDIS tool names since HTTP endpoint doesn't provide tool discovery
     return [
-      'aidis_ping', 'aidis_status', 'aidis_help', 'aidis_explain', 'aidis_examples',
-      'context_store', 'context_search', 'context_get_recent', 'context_stats',
-      'project_list', 'project_create', 'project_switch', 'project_current', 'project_info', 'project_insights',
-      'naming_register', 'naming_check', 'naming_suggest', 'naming_stats',
-      'decision_record', 'decision_search', 'decision_update', 'decision_stats',
-      'agent_register', 'agent_list', 'agent_status', 'agent_join', 'agent_leave', 'agent_sessions', 'agent_message', 'agent_messages',
-      'task_create', 'task_list', 'task_update',
-      'code_analyze', 'code_components', 'code_dependencies', 'code_impact', 'code_stats',
-      'smart_search', 'get_recommendations'
+      'aidis_ping',
+      'aidis_status',
+      'aidis_help',
+      'aidis_explain',
+      'aidis_examples',
+      'context_store',
+      'context_search',
+      'context_get_recent',
+      'context_stats',
+      'project_list',
+      'project_create',
+      'project_switch',
+      'project_current',
+      'project_info',
+      'project_insights',
+      'naming_register',
+      'naming_check',
+      'naming_suggest',
+      'naming_stats',
+      'decision_record',
+      'decision_search',
+      'decision_update',
+      'decision_stats',
+      'agent_register',
+      'agent_list',
+      'agent_status',
+      'agent_join',
+      'agent_leave',
+      'agent_sessions',
+      'agent_message',
+      'agent_messages',
+      'task_create',
+      'task_list',
+      'task_update',
+      'code_analyze',
+      'code_components',
+      'code_dependencies',
+      'code_impact',
+      'code_stats',
+      'smart_search',
+      'get_recommendations',
     ];
   }
 
   /**
    * Execute context_store command with ridge-code project context
    */
-  async storeContext(content: string, type: string, options?: {
-    tags?: string[];
-    relevanceScore?: number;
-    sessionId?: string;
-    metadata?: Record<string, unknown>;
-  }): Promise<McpResponse> {
+  async storeContext(
+    content: string,
+    type: string,
+    options?: {
+      tags?: string[];
+      relevanceScore?: number;
+      sessionId?: string;
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<McpResponse> {
     return this.executeCommand('context_store', {
       content,
       type,
@@ -231,23 +261,24 @@ export class AidisMcpClient {
   /**
    * Execute task_create command with ridge-code project context
    */
-  async createTask(title: string, options?: {
-    description?: string;
-    type?: string;
-    priority?: string;
-    assignedTo?: string;
-    dependencies?: string[];
-    tags?: string[];
-    metadata?: Record<string, unknown>;
-  }): Promise<McpResponse> {
+  async createTask(
+    title: string,
+    options?: {
+      description?: string;
+      type?: string;
+      priority?: string;
+      assignedTo?: string;
+      dependencies?: string[];
+      tags?: string[];
+      metadata?: Record<string, unknown>;
+    }
+  ): Promise<McpResponse> {
     return this.executeCommand('task_create', {
       title,
       ...options,
       projectId: '51040d59-dc3a-4f1b-a17a-cf707cd35937', // Explicit ridge-code project context
     });
   }
-
-
 
   /**
    * Utility method for sleep/delay

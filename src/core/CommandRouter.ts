@@ -11,7 +11,7 @@ export class CommandRouter {
   private readonly responseBuffer: ResponseBuffer;
   private readonly aidisParser: AidisResponseParser;
   private readonly aidisClient: AidisMcpClient;
-  
+
   // Dangerous commands that should be blocked for safety
   private readonly BLOCKED_COMMANDS = [
     'rm -rf',
@@ -30,13 +30,10 @@ export class CommandRouter {
     'init 0',
     'init 6',
     'halt',
-    'poweroff'
+    'poweroff',
   ];
 
-  constructor(
-    responseBuffer: ResponseBuffer,
-    aidisClient: AidisMcpClient
-  ) {
+  constructor(responseBuffer: ResponseBuffer, aidisClient: AidisMcpClient) {
     this.responseBuffer = responseBuffer;
     this.aidisParser = new AidisResponseParser();
     this.aidisClient = aidisClient;
@@ -47,7 +44,7 @@ export class CommandRouter {
    */
   routeCommand(input: string): Promise<CommandResult> {
     const trimmedInput = input.trim();
-    
+
     if (trimmedInput.startsWith('/aidis_')) {
       return this.handleAidisCommand(trimmedInput);
     } else if (trimmedInput === '/help') {
@@ -76,7 +73,7 @@ export class CommandRouter {
             success: false,
             error: `Unknown AIDIS command: ${command}`,
             timestamp: new Date().toISOString(),
-            commandType: 'aidis'
+            commandType: 'aidis',
           };
       }
     } catch (error) {
@@ -84,7 +81,7 @@ export class CommandRouter {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
-        commandType: 'aidis'
+        commandType: 'aidis',
       };
     }
   }
@@ -98,28 +95,28 @@ export class CommandRouter {
         success: false,
         error: 'aidis_store requires --context or --task flag',
         timestamp: new Date().toISOString(),
-        commandType: 'aidis'
+        commandType: 'aidis',
       };
     }
 
     const flag = args[0];
-    
+
     try {
       // Get recent responses from buffer
       const recentResponses = this.responseBuffer.getRecentResponses(5);
-      
+
       if (recentResponses.length === 0) {
         return {
           success: false,
           error: 'No responses found in buffer to store',
           timestamp: new Date().toISOString(),
-          commandType: 'aidis'
+          commandType: 'aidis',
         };
       }
 
       // Parse AIDIS commands from responses
       const parsedCommands: ParsedAidisCommand[] = [];
-      
+
       for (const response of recentResponses) {
         const commands = this.aidisParser.extractCommands(response.content);
         parsedCommands.push(...commands);
@@ -130,7 +127,7 @@ export class CommandRouter {
           success: false,
           error: 'No AIDIS commands found in recent responses',
           timestamp: new Date().toISOString(),
-          commandType: 'aidis'
+          commandType: 'aidis',
         };
       }
 
@@ -146,13 +143,15 @@ export class CommandRouter {
               tags: parsedCommand.payload.tags as string[],
               relevanceScore: parsedCommand.payload.relevanceScore as number,
               sessionId: parsedCommand.payload.sessionId as string,
-              metadata: parsedCommand.payload.metadata as Record<string, unknown>
+              metadata: parsedCommand.payload.metadata as Record<string, unknown>,
             }
           );
-          
+
           if (result.success) {
             executedCommands++;
-            results.push(`Stored context: ${(parsedCommand.payload.content as string).substring(0, 50)}...`);
+            results.push(
+              `Stored context: ${(parsedCommand.payload.content as string).substring(0, 50)}...`
+            );
           } else {
             results.push(`Failed to store context: ${result.error}`);
           }
@@ -166,10 +165,10 @@ export class CommandRouter {
               assignedTo: parsedCommand.payload.assignedTo as string,
               dependencies: parsedCommand.payload.dependencies as string[],
               tags: parsedCommand.payload.tags as string[],
-              metadata: parsedCommand.payload.metadata as Record<string, unknown>
+              metadata: parsedCommand.payload.metadata as Record<string, unknown>,
             }
           );
-          
+
           if (result.success) {
             executedCommands++;
             results.push(`Created task: ${parsedCommand.payload.title}`);
@@ -184,7 +183,7 @@ export class CommandRouter {
           success: false,
           error: `No ${flag === '--context' ? 'context_store' : 'task_create'} commands found in recent responses`,
           timestamp: new Date().toISOString(),
-          commandType: 'aidis'
+          commandType: 'aidis',
         };
       }
 
@@ -192,15 +191,14 @@ export class CommandRouter {
         success: true,
         output: `Executed ${executedCommands} commands:\n${results.join('\n')}`,
         timestamp: new Date().toISOString(),
-        commandType: 'aidis'
+        commandType: 'aidis',
       };
-
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
-        commandType: 'aidis'
+        commandType: 'aidis',
       };
     }
   }
@@ -216,20 +214,20 @@ export class CommandRouter {
       }
 
       const success = await this.aidisClient.ping();
-      
+
       if (success) {
         return {
           success: true,
           output: 'AIDIS connection successful',
           timestamp: new Date().toISOString(),
-          commandType: 'aidis'
+          commandType: 'aidis',
         };
       } else {
         return {
           success: false,
           error: 'AIDIS ping failed',
           timestamp: new Date().toISOString(),
-          commandType: 'aidis'
+          commandType: 'aidis',
         };
       }
     } catch (error) {
@@ -237,7 +235,7 @@ export class CommandRouter {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
-        commandType: 'aidis'
+        commandType: 'aidis',
       };
     }
   }
@@ -278,7 +276,7 @@ Configuration:
       success: true,
       output: helpText.trim(),
       timestamp: new Date().toISOString(),
-      commandType: 'help'
+      commandType: 'help',
     };
   }
 
@@ -293,7 +291,7 @@ Configuration:
           success: false,
           error: 'Empty command provided',
           timestamp: new Date().toISOString(),
-          commandType: 'shell'
+          commandType: 'shell',
         };
       }
 
@@ -304,18 +302,18 @@ Configuration:
             success: false,
             error: `Command blocked for safety: ${blockedCmd}`,
             timestamp: new Date().toISOString(),
-            commandType: 'shell'
+            commandType: 'shell',
           };
         }
       }
 
-      return new Promise<CommandResult>((resolve) => {
+      return new Promise<CommandResult>(resolve => {
         // Use shell: true to execute the entire command as a shell command
         const childProcess = spawn(command.trim(), [], {
           stdio: ['pipe', 'pipe', 'pipe'],
-          shell: true
+          shell: true,
         });
-        
+
         let stdout = '';
         let stderr = '';
 
@@ -340,7 +338,7 @@ Configuration:
               success: true,
               output: output || 'Command completed successfully',
               timestamp: new Date().toISOString(),
-              commandType: 'shell'
+              commandType: 'shell',
             });
           } else {
             resolve({
@@ -348,7 +346,7 @@ Configuration:
               error: error || `Command failed with exit code ${code}`,
               output: output || undefined,
               timestamp: new Date().toISOString(),
-              commandType: 'shell'
+              commandType: 'shell',
             });
           }
         });
@@ -358,7 +356,7 @@ Configuration:
             success: false,
             error: `Failed to execute command: ${error.message}`,
             timestamp: new Date().toISOString(),
-            commandType: 'shell'
+            commandType: 'shell',
           });
         });
 
@@ -371,17 +369,16 @@ Configuration:
             success: false,
             error: 'Command timed out after 30 seconds',
             timestamp: new Date().toISOString(),
-            commandType: 'shell'
+            commandType: 'shell',
           });
         }, 30000);
       });
-
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
-        commandType: 'shell'
+        commandType: 'shell',
       };
     }
   }

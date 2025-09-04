@@ -37,7 +37,7 @@ export class RidgeCLI {
       .option('-f, --force', 'Overwrite existing configuration file')
       .action(async (options: { force?: boolean }) => {
         try {
-          if (await this.configManager.exists() && !options.force) {
+          if ((await this.configManager.exists()) && !options.force) {
             console.log(
               chalk.yellow('Configuration file already exists. Use --force to overwrite.')
             );

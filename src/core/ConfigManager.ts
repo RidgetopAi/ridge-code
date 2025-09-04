@@ -4,22 +4,36 @@ import * as os from 'os';
 import * as crypto from 'crypto';
 import { z } from 'zod';
 
+// Provider configuration schema
+const ProviderConfigSchema = z.object({
+  apiKey: z.string(),
+  model: z.string(),
+});
+
 // Configuration schema with Zod validation
 const RidgeCodeConfigSchema = z.object({
-  models: z.object({
-    anthropic: z.object({
-      apiKey: z.string(),
-      model: z.string().default('claude-3-5-sonnet-20241022'),
-    }),
-    openai: z.object({
-      apiKey: z.string(),
-      model: z.string().default('gpt-4'),
-    }),
-    xai: z.object({
-      apiKey: z.string(),
-      model: z.string().default('grok-beta'),
-    }),
-  }),
+  models: z.record(z.string(), ProviderConfigSchema).refine(
+    models => {
+      // Ensure required providers exist with proper defaults
+      const requiredProviders = ['anthropic', 'openai', 'xai'];
+      const defaults = {
+        anthropic: { model: 'claude-3-5-sonnet-20241022' },
+        openai: { model: 'gpt-4' },
+        xai: { model: 'grok-beta' },
+      };
+
+      for (const provider of requiredProviders) {
+        if (!models[provider]) {
+          models[provider] = {
+            apiKey: '',
+            model: defaults[provider as keyof typeof defaults].model,
+          };
+        }
+      }
+      return true;
+    },
+    { message: 'Missing required provider configurations' }
+  ),
   aidis: z.object({
     mcpEndpoint: z.string(),
     httpBridge: z.string().optional(),
@@ -32,6 +46,12 @@ const RidgeCodeConfigSchema = z.object({
 });
 
 export type RidgeCodeConfig = z.infer<typeof RidgeCodeConfigSchema>;
+
+// Individual provider configuration type
+export interface ProviderConfig {
+  apiKey: string;
+  model: string;
+}
 
 // Encrypted storage format
 interface EncryptedConfigFile {
@@ -121,20 +141,32 @@ export class ConfigManager {
    * Get environment variable override for a config path
    */
   private getEnvOverride(keyPath: string): string | undefined {
-    const envMappings: Record<string, string> = {
-      'models.anthropic.apiKey': 'RIDGE_CODE_ANTHROPIC_KEY',
-      'models.anthropic.model': 'RIDGE_CODE_ANTHROPIC_MODEL',
-      'models.openai.apiKey': 'RIDGE_CODE_OPENAI_KEY',
-      'models.openai.model': 'RIDGE_CODE_OPENAI_MODEL',
-      'models.xai.apiKey': 'RIDGE_CODE_XAI_KEY',
-      'models.xai.model': 'RIDGE_CODE_XAI_MODEL',
+    // Dynamic mapping for provider configurations
+    if (keyPath.startsWith('models.')) {
+      const pathParts = keyPath.split('.');
+      if (pathParts.length === 3) {
+        const [, provider, property] = pathParts;
+        if (provider && property) {
+          const providerUpper = provider.replace(/([A-Z])/g, '_$1').toUpperCase();
+
+          if (property === 'apiKey') {
+            return process.env[`RIDGE_CODE_${providerUpper}_KEY`];
+          } else if (property === 'model') {
+            return process.env[`RIDGE_CODE_${providerUpper}_MODEL`];
+          }
+        }
+      }
+    }
+
+    // Static mappings for other configurations
+    const staticMappings: Record<string, string> = {
       'aidis.mcpEndpoint': 'RIDGE_CODE_AIDIS_ENDPOINT',
       'aidis.httpBridge': 'RIDGE_CODE_AIDIS_BRIDGE',
       'ui.maxResponseBuffer': 'RIDGE_CODE_MAX_BUFFER',
       'ui.showThinking': 'RIDGE_CODE_SHOW_THINKING',
     };
 
-    const envVar = envMappings[keyPath];
+    const envVar = staticMappings[keyPath];
     return envVar ? process.env[envVar] : undefined;
   }
 
@@ -262,9 +294,46 @@ export class ConfigManager {
   }
 
   /**
-   * Set configuration value
+   * Get configuration value for display (masks API keys)
+   */
+  async getForDisplay(keyPath: string): Promise<any> {
+    const value = await this.get(keyPath);
+
+    // Mask API keys for security
+    if (keyPath.includes('apiKey') && typeof value === 'string' && value.length > 0) {
+      return this.maskApiKey(value);
+    }
+
+    return value;
+  }
+
+  /**
+   * Mask API key for display purposes
+   */
+  private maskApiKey(apiKey: string): string {
+    if (!apiKey || apiKey.length === 0) {
+      return '(not set)';
+    }
+
+    if (apiKey.length <= 12) {
+      // For short keys, show first 4 and last 4 chars
+      return apiKey.substring(0, 4) + '***' + apiKey.slice(-4);
+    }
+
+    // For longer keys, show first 8 and last 4 chars
+    return apiKey.substring(0, 8) + '*'.repeat(Math.max(0, apiKey.length - 12)) + apiKey.slice(-4);
+  }
+
+  /**
+   * Set configuration value with validation
    */
   async set(keyPath: string, value: any): Promise<void> {
+    // Validate the config path first
+    this.validateConfigPath(keyPath);
+    
+    // Validate the value based on path
+    this.validateConfigValue(keyPath, value);
+
     // Load config if not already loaded
     if (!this.config) {
       try {
@@ -345,5 +414,243 @@ export class ConfigManager {
    */
   clearCache(): void {
     this.config = null;
+  }
+
+  /**
+   * Validate configuration path to prevent invalid paths
+   */
+  private validateConfigPath(keyPath: string): void {
+    // Define valid configuration paths
+    const validPaths = [
+      // Model configurations
+      /^models\.(anthropic|openai|xai)\.(apiKey|model)$/,
+      // AIDIS configurations
+      /^aidis\.(mcpEndpoint|httpBridge|authMethod)$/,
+      // UI configurations
+      /^ui\.(maxResponseBuffer|showThinking)$/
+    ];
+
+    const isValid = validPaths.some(pattern => pattern.test(keyPath));
+    
+    if (!isValid) {
+      throw new Error(
+        `Invalid configuration path: ${keyPath}\n` +
+        `Valid paths:\n` +
+        `  • models.{provider}.apiKey - Set API keys for providers (anthropic, openai, xai)\n` +
+        `  • models.{provider}.model - Set model for provider\n` +
+        `  • aidis.mcpEndpoint - AIDIS MCP endpoint\n` +
+        `  • aidis.httpBridge - AIDIS HTTP bridge URL\n` +
+        `  • ui.maxResponseBuffer - Response buffer size\n` +
+        `  • ui.showThinking - Show AI thinking process`
+      );
+    }
+  }
+
+  /**
+   * Validate configuration values based on their paths
+   */
+  private validateConfigValue(keyPath: string, value: any): void {
+    // API Key validation
+    if (keyPath.includes('.apiKey')) {
+      if (typeof value !== 'string') {
+        throw new Error('API keys must be strings');
+      }
+      
+      if (value.length > 0 && value.length < 8) {
+        throw new Error('API key appears too short. Please verify it\'s correct.');
+      }
+
+      // Validate API key format for known providers
+      if (keyPath.includes('models.anthropic.apiKey') && value) {
+        if (!value.startsWith('sk-ant-')) {
+          console.warn('⚠️  Warning: Anthropic API keys typically start with "sk-ant-"');
+        }
+      }
+      
+      if (keyPath.includes('models.openai.apiKey') && value) {
+        if (!value.startsWith('sk-')) {
+          console.warn('⚠️  Warning: OpenAI API keys typically start with "sk-"');
+        }
+      }
+    }
+
+    // Model validation
+    if (keyPath.includes('.model')) {
+      if (typeof value !== 'string' || !value) {
+        throw new Error('Model names must be non-empty strings');
+      }
+
+      // Known valid models for each provider
+      const validModels: Record<string, string[]> = {
+        anthropic: [
+          'claude-3-5-sonnet-20241022',
+          'claude-3-5-haiku-20241022', 
+          'claude-3-opus-20240229',
+          'claude-3-sonnet-20240229',
+          'claude-3-haiku-20240307'
+        ],
+        openai: [
+          'gpt-4',
+          'gpt-4-turbo',
+          'gpt-4-turbo-preview',
+          'gpt-3.5-turbo'
+        ],
+        xai: [
+          'grok-beta',
+          'grok-1'
+        ]
+      };
+
+      const provider = keyPath.split('.')[1];
+      const knownModels = provider ? (validModels[provider] || []) : [];
+      
+      if (knownModels.length > 0 && !knownModels.includes(value)) {
+        console.warn(
+          `⚠️  Warning: '${value}' is not in the list of known ${provider} models.\n` +
+          `   Known models: ${knownModels.join(', ')}\n` +
+          `   The model might still work if it exists on the provider's platform.`
+        );
+      }
+    }
+
+    // Numeric validation
+    if (keyPath === 'ui.maxResponseBuffer') {
+      const num = Number(value);
+      if (isNaN(num) || num < 1000 || num > 100000) {
+        throw new Error('ui.maxResponseBuffer must be a number between 1000 and 100000');
+      }
+    }
+
+    // Boolean validation  
+    if (keyPath === 'ui.showThinking') {
+      if (typeof value === 'string') {
+        const lowerValue = value.toLowerCase();
+        if (!['true', 'false'].includes(lowerValue)) {
+          throw new Error('ui.showThinking must be true or false');
+        }
+      } else if (typeof value !== 'boolean') {
+        throw new Error('ui.showThinking must be true or false');
+      }
+    }
+
+    // AIDIS endpoint validation
+    if (keyPath === 'aidis.mcpEndpoint') {
+      if (typeof value !== 'string' || !value) {
+        throw new Error('AIDIS MCP endpoint must be a non-empty string');
+      }
+      
+      if (!value.startsWith('stdio://') && !value.startsWith('http://') && !value.startsWith('https://')) {
+        console.warn('⚠️  Warning: AIDIS endpoint should typically start with stdio://, http://, or https://');
+      }
+    }
+  }
+
+  /**
+   * Get configuration for a specific provider
+   */
+  async getProviderConfig(name: string): Promise<ProviderConfig | undefined> {
+    if (!this.config) {
+      await this.load();
+    }
+
+    const provider = this.config?.models?.[name as keyof typeof this.config.models];
+    if (!provider) return undefined;
+
+    // Check for environment variable overrides
+    const apiKeyOverride = this.getEnvOverride(`models.${name}.apiKey`);
+    const modelOverride = this.getEnvOverride(`models.${name}.model`);
+
+    return {
+      apiKey: apiKeyOverride || provider.apiKey,
+      model: modelOverride || provider.model,
+    };
+  }
+
+  /**
+   * List all configured providers
+   */
+  async listProviders(): Promise<string[]> {
+    if (!this.config) {
+      await this.load();
+    }
+
+    return this.config?.models ? Object.keys(this.config.models) : [];
+  }
+
+  /**
+   * Set configuration for a specific provider
+   */
+  async setProviderConfig(name: string, config: ProviderConfig): Promise<void> {
+    // Load config if not already loaded
+    if (!this.config) {
+      try {
+        await this.load();
+      } catch (error) {
+        // If config doesn't exist, create default structure
+        this.config = await this.createDefaultConfig();
+      }
+    }
+
+    // Create a copy to avoid mutations
+    const updatedConfig = JSON.parse(JSON.stringify(this.config));
+
+    // Initialize models object if it doesn't exist
+    if (!updatedConfig.models) {
+      updatedConfig.models = {};
+    }
+
+    // Set the provider configuration
+    updatedConfig.models[name] = {
+      apiKey: config.apiKey,
+      model: config.model,
+    };
+
+    // Save the updated configuration
+    await this.save(updatedConfig);
+  }
+
+  /**
+   * Remove a provider from configuration
+   */
+  async removeProvider(name: string): Promise<void> {
+    if (!this.config) {
+      await this.load();
+    }
+
+    if (!this.config?.models?.[name as keyof typeof this.config.models]) {
+      throw new Error(`Provider '${name}' not found in configuration`);
+    }
+
+    // Create a copy to avoid mutations
+    const updatedConfig = JSON.parse(JSON.stringify(this.config));
+    delete updatedConfig.models[name];
+
+    // Save the updated configuration
+    await this.save(updatedConfig);
+  }
+
+  /**
+   * Get all provider configurations with environment overrides applied
+   */
+  async getAllProviderConfigs(): Promise<Record<string, ProviderConfig>> {
+    const providers = await this.listProviders();
+    const configs: Record<string, ProviderConfig> = {};
+
+    for (const provider of providers) {
+      const config = await this.getProviderConfig(provider);
+      if (config) {
+        configs[provider] = config;
+      }
+    }
+
+    return configs;
+  }
+
+  /**
+   * Check if a provider is configured (has API key)
+   */
+  async isProviderConfigured(name: string): Promise<boolean> {
+    const config = await this.getProviderConfig(name);
+    return !!(config?.apiKey && config.apiKey.trim() !== '');
   }
 }

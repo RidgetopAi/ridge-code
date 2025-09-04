@@ -75,24 +75,24 @@ export class TerminalRenderer {
     try {
       for await (const chunk of stream) {
         buffer += chunk;
-        
+
         // Check for code block delimiters
         const codeBlockMatch = buffer.match(/```(\w+)?\n?([\s\S]*?)```/);
-        
+
         if (codeBlockMatch && !isInCodeBlock) {
           // Found complete code block
           const [fullMatch, language, code] = codeBlockMatch;
           const beforeCode = buffer.substring(0, buffer.indexOf(fullMatch));
           const afterCode = buffer.substring(buffer.indexOf(fullMatch) + fullMatch.length);
-          
+
           // Render content before code block
           if (beforeCode) {
             process.stdout.write(this.formatInlineText(beforeCode));
           }
-          
+
           // Render syntax-highlighted code block
           console.log(this.formatCodeBlock(code || '', language || ''));
-          
+
           // Continue with remaining content
           buffer = afterCode;
         } else if (buffer.includes('```') && !isInCodeBlock) {
@@ -101,28 +101,28 @@ export class TerminalRenderer {
           const beforeCode = buffer.substring(0, codeBlockStart);
           const codeBlockHeader = buffer.substring(codeBlockStart);
           const newlineIndex = codeBlockHeader.indexOf('\n');
-          
+
           if (newlineIndex > -1) {
             // We have the complete header
             codeBlockLanguage = codeBlockHeader.substring(3, newlineIndex).trim();
             isInCodeBlock = true;
             codeBlockContent = '';
-            
+
             // Render content before code block
             if (beforeCode) {
               process.stdout.write(this.formatInlineText(beforeCode));
             }
-            
+
             buffer = codeBlockHeader.substring(newlineIndex + 1);
           }
         } else if (isInCodeBlock && buffer.includes('```')) {
           // End of code block
           const endIndex = buffer.indexOf('```');
           codeBlockContent += buffer.substring(0, endIndex);
-          
+
           // Render complete code block
           console.log(this.formatCodeBlock(codeBlockContent, codeBlockLanguage));
-          
+
           // Reset state and continue
           isInCodeBlock = false;
           buffer = buffer.substring(endIndex + 3);
@@ -136,7 +136,7 @@ export class TerminalRenderer {
           process.stdout.write(this.formatInlineText(chunk));
         }
       }
-      
+
       // Handle any remaining buffer content
       if (buffer) {
         if (isInCodeBlock) {
@@ -146,7 +146,6 @@ export class TerminalRenderer {
           process.stdout.write(this.formatInlineText(buffer));
         }
       }
-      
     } catch (error) {
       // Fallback: just write chunks directly
       console.error(chalk.yellow('⚠ Streaming render error, falling back to plain output'));
@@ -172,17 +171,17 @@ export class TerminalRenderer {
         console.log(chalk.yellow('No data to display'));
         return;
       }
-      
+
       const headers = Object.keys(firstItem);
-      
+
       // Create table with styling
       const table = new Table({
         head: headers.map(h => chalk.bold.cyan(h)),
         style: {
           head: [],
-          border: ['gray']
+          border: ['gray'],
         },
-        colWidths: headers.map(() => null) // Auto-width
+        colWidths: headers.map(() => null), // Auto-width
       });
 
       // Add rows
@@ -208,7 +207,7 @@ export class TerminalRenderer {
   renderError(error: Error): void {
     console.log(chalk.red.bold('✗ ERROR'));
     console.log(chalk.red(`Message: ${error.message}`));
-    
+
     if (error.stack) {
       console.log(chalk.gray('Stack Trace:'));
       const stackLines = error.stack.split('\n');
@@ -230,7 +229,7 @@ export class TerminalRenderer {
         }
       });
     }
-    
+
     console.log(); // Empty line after error
   }
 
@@ -260,9 +259,9 @@ export class TerminalRenderer {
    */
   private formatCodeBlock(code: string, language: string): string {
     try {
-      const highlighted = highlight(code, { 
+      const highlighted = highlight(code, {
         language: language || 'text',
-        theme: 'github-dark'
+        theme: 'github-dark',
       });
       return chalk.gray('```' + language) + '\n' + highlighted + '\n' + chalk.gray('```');
     } catch (error) {
@@ -287,7 +286,7 @@ export class TerminalRenderer {
   /**
    * Format inline text with basic styling for streaming
    */
-  private formatInlineText(text: string): string {
+  formatInlineText(text: string): string {
     // Basic inline formatting for streaming
     return text
       .replace(/\*\*(.*?)\*\*/g, chalk.bold('$1'))
@@ -301,7 +300,7 @@ export class TerminalRenderer {
   private formatMarkdownTable(content: string): string {
     const lines = content.split('\n');
     const tableLines = lines.filter(line => line.includes('|'));
-    
+
     if (tableLines.length < 2) {
       return content; // Not a proper table
     }
@@ -312,12 +311,18 @@ export class TerminalRenderer {
       if (!headerTableLine) {
         return content;
       }
-      
-      const headerRow = headerTableLine.split('|').map(cell => cell.trim()).filter(cell => cell);
-      
+
+      const headerRow = headerTableLine
+        .split('|')
+        .map(cell => cell.trim())
+        .filter(cell => cell);
+
       // Parse data rows (skip separator row)
-      const dataRows = tableLines.slice(2).map(line => 
-        line.split('|').map(cell => cell.trim()).filter(cell => cell)
+      const dataRows = tableLines.slice(2).map(line =>
+        line
+          .split('|')
+          .map(cell => cell.trim())
+          .filter(cell => cell)
       );
 
       if (headerRow.length === 0) {
@@ -329,8 +334,8 @@ export class TerminalRenderer {
         head: headerRow.map(h => chalk.bold.cyan(h)),
         style: {
           head: [],
-          border: ['gray']
-        }
+          border: ['gray'],
+        },
       });
 
       dataRows.forEach(row => {
@@ -342,21 +347,21 @@ export class TerminalRenderer {
       // Replace the table portion with formatted version
       const firstTableLine = tableLines[0];
       const lastTableLine = tableLines[tableLines.length - 1];
-      
+
       if (!firstTableLine || !lastTableLine) {
         return content;
       }
-      
+
       const firstTableLineIndex = lines.findIndex(line => line === firstTableLine);
       const lastTableLineIndex = lines.findIndex(line => line === lastTableLine);
-      
+
       if (firstTableLineIndex !== -1 && lastTableLineIndex !== -1) {
         const beforeTable = lines.slice(0, firstTableLineIndex);
         const afterTable = lines.slice(lastTableLineIndex + 1);
-        
+
         return [...beforeTable, table.toString(), ...afterTable].join('\n');
       }
-      
+
       return content; // Fallback
     } catch (error) {
       return content; // Fallback to original
@@ -370,15 +375,15 @@ export class TerminalRenderer {
     if (value === null || value === undefined) {
       return chalk.gray('(null)');
     }
-    
+
     if (typeof value === 'boolean') {
       return value ? chalk.green('true') : chalk.red('false');
     }
-    
+
     if (typeof value === 'number') {
       return chalk.cyan(value.toString());
     }
-    
+
     if (typeof value === 'string') {
       // Check for special values
       if (value.toLowerCase() === 'error' || value.toLowerCase() === 'failed') {
@@ -392,7 +397,7 @@ export class TerminalRenderer {
       }
       return value;
     }
-    
+
     return chalk.gray(JSON.stringify(value));
   }
 }
